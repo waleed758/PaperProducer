@@ -23,6 +23,6 @@ On Windows PowerShell, activate the virtual environment with:
 
 The API root is available at `http://127.0.0.1:8000/api/v1/` and the health check at `http://127.0.0.1:8000/api/v1/health/`.
 
-The local scaffold uses Django's default SQLite configuration so the server can start without a separate database service. No migrations have been created or applied for this project yet. The database design and PostgreSQL/MySQL configuration will be handled in the later database step.
+The local scaffold defaults to SQLite so the API can start without a database service. PostgreSQL can be selected by setting `DB_ENGINE=postgresql` and filling in the `DB_*` values in `.env`. The project currently supports PostgreSQL or SQLite; schema migrations will be created after the remaining account and tenancy design decisions are settled.
 
 Do not use the example secret key outside local development. Keep the real `.env` file private; it is ignored by Git.
