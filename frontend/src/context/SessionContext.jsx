@@ -1,43 +1,61 @@
-import { createContext, useContext, useMemo, useState } from 'react'
-import { ROLE_META } from '../constants/roles'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { apiRequest, authPost } from '../services/api'
 
-const STORAGE_KEY = 'pp_preview_session'
 const SessionContext = createContext(null)
 
-function readSession() {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
+function normalizeUser(user) {
+  const displayName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email
+  return {
+    ...user,
+    displayName,
+    instituteName: user.institute?.name ?? null,
+    assignedSubjects: [],
   }
 }
 
 export function SessionProvider({ children }) {
-  const [session, setSessionState] = useState(readSession)
+  const [session, setSession] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [connectionError, setConnectionError] = useState(false)
 
-  const setSession = (next) => {
-    setSessionState(next)
-    if (next) sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-    else sessionStorage.removeItem(STORAGE_KEY)
+  const refreshSession = useCallback(async () => {
+    setLoading(true)
+    try {
+      const response = await apiRequest('/auth/me/')
+      setSession(normalizeUser(response.user))
+      setConnectionError(false)
+    } catch (error) {
+      setSession(null)
+      setConnectionError(error.status !== 401)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshSession()
+  }, [refreshSession])
+
+  const signIn = async (credentials) => {
+    const response = await authPost('/auth/login/', credentials)
+    setSession(normalizeUser(response.user))
+    setConnectionError(false)
   }
 
-  const enterPreview = (role) => {
-    const meta = ROLE_META[role]
-    setSession({
-      mode: 'interface_preview',
-      role,
-      displayName: meta.previewName,
-      instituteName: meta.instituteName ?? null,
-      assignedSubjects: meta.assignedSubjects ?? [],
-    })
+  const signUp = async (details) => {
+    const response = await authPost('/auth/signup/', details)
+    setSession(normalizeUser(response.user))
+    setConnectionError(false)
   }
 
-  const leavePreview = () => setSession(null)
+  const signOut = async () => {
+    await authPost('/auth/logout/', {})
+    setSession(null)
+  }
 
   const value = useMemo(
-    () => ({ session, enterPreview, leavePreview, isPreview: Boolean(session) }),
-    [session],
+    () => ({ session, loading, connectionError, signIn, signUp, signOut, refreshSession }),
+    [session, loading, connectionError, refreshSession],
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

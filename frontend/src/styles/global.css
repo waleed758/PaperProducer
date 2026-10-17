@@ -308,6 +308,13 @@ table.data th {
   padding: 28px;
   box-shadow: var(--shadow);
 }
+.signup-card { width: min(520px, 100%); }
+.auth-title { font-family: var(--serif); font-size: 28px; margin: 0 0 8px; }
+.auth-description { color: var(--ink-soft); margin: 0 0 16px; }
+.auth-switch { color: var(--ink-soft); text-align: center; margin: 20px 0 0; }
+.auth-switch a { color: var(--teal-dark); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.auth-name-fields { gap: 12px; }
+.auth-loading { min-height: 100vh; display: grid; place-items: center; color: var(--ink-soft); }
 .login-language { display: flex; justify-content: flex-end; margin: -8px -8px 12px; }
 .language-toggle { min-width: 76px; }
 .section-block {

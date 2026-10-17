@@ -3,6 +3,7 @@ import { ROLE_META, ROLES } from '../constants/roles'
 import { useSession } from '../context/SessionContext'
 import { AppLayout } from '../layouts/AppLayout'
 import { LoginPage } from '../pages/LoginPage'
+import { SignupPage } from '../pages/SignupPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
 import {
@@ -33,13 +34,15 @@ import { PaperEditorPage } from '../features/paperEditor/PaperEditorPage'
 import { PapersListPage } from '../features/papers/PapersListPage'
 
 function RequireSession({ children }) {
-  const { session } = useSession()
+  const { session, loading } = useSession()
+  if (loading) return <div className="auth-loading" role="status">Loading your account…</div>
   if (!session) return <Navigate to="/" replace />
   return children
 }
 
-function PreviewHome() {
-  const { session } = useSession()
+function AccountHome() {
+  const { session, loading } = useSession()
+  if (loading) return <div className="auth-loading" role="status">Loading your account…</div>
   if (!session) return <Navigate to="/" replace />
   return <Navigate to={ROLE_META[session.role].home} replace />
 }
@@ -54,7 +57,8 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LoginPage />} />
-      <Route path="/app" element={<PreviewHome />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route path="/app" element={<AccountHome />} />
       <Route
         path="/app/admin"
         element={

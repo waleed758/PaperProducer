@@ -75,10 +75,10 @@ export function DashboardPage() {
         }
       />
       <Callout tone="info">
-        {t('Preview assigned subjects:')} {session.assignedSubjects.map(t).join('، ') || t('none')}. {t('Live assignments will come from the API.')}
+        {t('Your assigned subjects will appear here once institute permissions are configured.')}
       </Callout>
       <div className="grid grid-3" style={{ marginTop: 16 }}>
-        <StatCard label="Assigned subjects" hint={session.assignedSubjects.join(', ') || '—'} />
+        <StatCard label="Assigned subjects" />
         <StatCard label="My papers" />
         <StatCard label="Recent activity" />
       </div>

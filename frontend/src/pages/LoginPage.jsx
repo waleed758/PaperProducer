@@ -1,26 +1,35 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { BrandMark } from '../components/Icon'
 import { Button, Callout, Field } from '../components/ui'
-import { ROLE_META, ROLES } from '../constants/roles'
+import { ROLE_META } from '../constants/roles'
 import { useSession } from '../context/SessionContext'
-import { useToast } from '../context/ToastContext'
-import { PENDING_COPY } from '../services/api'
 import { useLanguage } from '../context/LanguageContext'
 import { LanguageToggle } from '../components/LanguageToggle'
+import { getErrorMessage } from '../services/api'
 
 export function LoginPage() {
-  const { session, enterPreview } = useSession()
-  const { pushToast } = useToast()
+  const { session, loading, connectionError, signIn } = useSession()
   const { t } = useLanguage()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
+  if (loading) return <div className="auth-loading" role="status">{t('Loading your account…')}</div>
   if (session) return <Navigate to={ROLE_META[session.role].home} replace />
 
-  const onSubmit = (event) => {
+  const onSubmit = async (event) => {
     event.preventDefault()
-    pushToast(PENDING_COPY.auth)
+    setError('')
+    setSubmitting(true)
+    try {
+      await signIn({ email, password })
+    } catch (requestError) {
+      setError(getErrorMessage(requestError))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -41,31 +50,24 @@ export function LoginPage() {
       <section className="login-panel">
         <div className="login-card">
           <div className="login-language"><LanguageToggle /></div>
-          <h3 style={{ fontFamily: 'var(--serif)', fontSize: 28, margin: '0 0 8px' }}>{t('Sign in')}</h3>
-          <p style={{ color: 'var(--ink-soft)', marginTop: 0 }}>{t('Authorized institute and platform users only.')}</p>
-          <Callout title={t('Authentication pending')}>{t(PENDING_COPY.auth)}</Callout>
+          <h3 className="auth-title">{t('Sign in')}</h3>
+          <p className="auth-description">{t('Sign in with your institute account.')}</p>
+          {connectionError ? <Callout tone="danger">{t('The server could not be reached.')}</Callout> : null}
+          {error ? <Callout tone="danger">{t(error)}</Callout> : null}
           <form className="stack-form" style={{ marginTop: 16 }} onSubmit={onSubmit}>
             <Field label="Email">
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required />
+              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required />
             </Field>
             <Field label="Password">
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+              <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
             </Field>
-              <Button type="submit">{t('Sign in')}</Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? t('Signing in…') : t('Sign in')}
+            </Button>
           </form>
-          <div style={{ height: 1, background: 'var(--rule)', margin: '22px 0' }} />
-          <p style={{ fontWeight: 600, margin: '0 0 10px' }}>{t('Interface preview')}</p>
-          <div className="stack-form">
-            <Button variant="ghost" onClick={() => enterPreview(ROLES.SUPER_ADMIN)}>
-              Preview Super Admin
-            </Button>
-            <Button variant="ghost" onClick={() => enterPreview(ROLES.INSTITUTE_ADMIN)}>
-              Preview Institute Admin
-            </Button>
-            <Button variant="copper" onClick={() => enterPreview(ROLES.TEACHER)}>
-              Preview Teacher
-            </Button>
-          </div>
+          <p className="auth-switch">
+            {t('New to Paper Producer?')} <Link to="/signup">{t('Create an institute account')}</Link>
+          </p>
         </div>
       </section>
     </div>

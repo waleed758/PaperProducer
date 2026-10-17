@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { NavLink, Outlet } from 'react-router-dom'
 import { BrandMark, Icon } from '../components/Icon'
 import { ROLE_META } from '../constants/roles'
@@ -6,24 +7,29 @@ import { useSession } from '../context/SessionContext'
 import { NAV } from './nav'
 import { useLanguage } from '../context/LanguageContext'
 import { LanguageToggle } from '../components/LanguageToggle'
+import { useToast } from '../context/ToastContext'
+import { getErrorMessage } from '../services/api'
 
 export function AppLayout() {
-  const { session, leavePreview } = useSession()
+  const { session, signOut } = useSession()
+  const navigate = useNavigate()
+  const { pushToast } = useToast()
   const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   const groups = NAV[session.role] ?? []
   const meta = ROLE_META[session.role]
 
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      navigate('/', { replace: true })
+    } catch (error) {
+      pushToast(t(getErrorMessage(error)))
+    }
+  }
+
   return (
     <div>
-      <div className="preview-banner">
-        <span>
-          {t('Interface preview — not authenticated. Role shown:')} {t(meta.label)}. {t('Live login, permissions, and data will come from Django.')}
-        </span>
-        <button className="btn btn-sm btn-ghost" style={{ color: '#fff', borderColor: '#6b7c86' }} onClick={leavePreview}>
-          {t('Exit preview')}
-        </button>
-      </div>
       <div className="app-shell">
         <aside className={`sidebar ${open ? 'is-open' : ''}`}>
           <div className="brand">
@@ -67,8 +73,8 @@ export function AppLayout() {
           </div>
           <div className="toolbar topbar-actions" style={{ margin: 0 }}>
             <LanguageToggle />
-            <button className="btn btn-ghost btn-sm" onClick={leavePreview}>
-              <Icon name="logout" size={16} /> {t('Leave')}
+            <button className="btn btn-ghost btn-sm" onClick={handleSignOut}>
+              <Icon name="logout" size={16} /> {t('Sign out')}
             </button>
           </div>
         </header>
