@@ -1,0 +1,10 @@
+# Python / Django
+__pycache__/
+*.py[cod]
+*.sqlite3
+backend/.venv/
+backend/.env
+
+# Generated backend files
+backend/staticfiles/
+backend/media/

@@ -2,9 +2,9 @@
 
 **Just click to make it real.**
 
-Educational SaaS for schools, colleges, academies, and institutes. This repository currently contains **Phase 1: complete web interface**.
+Educational SaaS for schools, colleges, academies, and institutes. The React interface is complete, and the Django REST Framework API scaffold has been started.
 
-The UI is original. It is not connected to a backend yet. Sign-in, statistics, generation, and PDFs are not simulated as live systems.
+The frontend is not connected to domain APIs yet. The backend currently provides only the project scaffold and API health endpoints. Sign-in, statistics, generation, and PDFs are not simulated as live systems.
 
 ## Run the web interface
 
@@ -22,11 +22,16 @@ Open the printed local URL (default `http://localhost:5173`).
 - **Sign in** does not authenticate. It explains that the API is pending.
 - **Interface preview** lets you inspect Super Admin, Institute Admin, and Teacher screens.
 
+## Run the backend
+
+See [backend/README.md](backend/README.md) for Django environment setup and local run instructions. Domain models, authentication, and database migrations have not been implemented yet.
+
 ## Phase status
 
 | Area | Status |
 |------|--------|
 | Web UI for all roles | Implemented (this phase) |
-| Django API, auth, database | Not started |
+| Django / DRF project scaffold | Started |
+| Authentication, domain APIs, database | Not started |
 | Paper / guess generation | UI only — no generation |
 | PDF / answer keys | UI only — no files produced |
