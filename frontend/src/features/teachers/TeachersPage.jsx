@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { apiRequest, authPost, getErrorMessage } from '../../services/api'
 import { Button, Callout, DataTable, Field, Modal, PageHeader, PendingSaveButton } from '../../components/ui'
 import { SUBJECTS } from '../../data/interfaceCatalog'
 import { ROLES } from '../../constants/roles'
 import { useSession } from '../../context/SessionContext'
-import { PENDING_COPY } from '../../services/api'
 import { useLanguage } from '../../context/LanguageContext'
 
 export function TeachersPage() {
@@ -11,11 +11,56 @@ export function TeachersPage() {
   const { t } = useLanguage()
   const [addOpen, setAddOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
+  const [teachers, setTeachers] = useState([])
+  const [loadError, setLoadError] = useState('')
+  const [formError, setFormError] = useState('')
+  const [saving, setSaving] = useState(false)
   const isAdmin = session.role === ROLES.INSTITUTE_ADMIN
-  const title = isAdmin ? 'Teachers' : 'Teachers'
+  const canViewTeachers = isAdmin || session.role === ROLES.SUPER_ADMIN
+  const title = 'Teachers'
   const description = isAdmin
-    ? 'Add, activate, deactivate, and assign subject permissions for teachers in your institute only.'
+    ? 'Add teachers to your institute and view their account status.'
     : 'Platform view of teachers across institutes.'
+
+  useEffect(() => {
+    if (!canViewTeachers) return
+    apiRequest('/auth/teachers/')
+      .then((response) => {
+        setTeachers(response.teachers)
+        setLoadError('')
+      })
+      .catch((error) => setLoadError(getErrorMessage(error)))
+  }, [canViewTeachers])
+
+  async function handleCreateTeacher(event) {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    setSaving(true)
+    setFormError('')
+    try {
+      const response = await authPost('/auth/teachers/create/', {
+        name: form.get('name'),
+        email: form.get('email'),
+        password: form.get('password'),
+      })
+      setTeachers((current) => [...current, response.teacher].sort((a, b) => a.first_name.localeCompare(b.first_name)))
+      setAddOpen(false)
+    } catch (error) {
+      setFormError(getErrorMessage(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const rows = teachers.map((teacher) => ({
+    id: teacher.id,
+    cells: [
+      [teacher.first_name, teacher.last_name].filter(Boolean).join(' '),
+      teacher.email,
+      teacher.institute,
+      teacher.is_active ? 'Active' : 'Inactive',
+    ],
+  }))
 
   return (
     <>
@@ -24,7 +69,7 @@ export function TeachersPage() {
         description={description}
         actions={
           <>
-            <Button onClick={() => setAddOpen(true)}>Add teacher</Button>
+            {isAdmin ? <Button onClick={() => { setFormError(''); setAddOpen(true) }}>Add teacher</Button> : null}
             {isAdmin ? (
               <Button variant="ghost" onClick={() => setAssignOpen(true)}>
                 Assign subjects
@@ -33,7 +78,7 @@ export function TeachersPage() {
           </>
         }
       />
-      <Callout>{PENDING_COPY.data}</Callout>
+      {loadError ? <Callout tone="danger">{loadError}</Callout> : null}
       <div className="card" style={{ marginTop: 16 }}>
         <div className="toolbar">
           <input className="search" placeholder={t('Search teachers')} />
@@ -42,24 +87,25 @@ export function TeachersPage() {
           </Button>
         </div>
         <DataTable
-          columns={['Name', 'Email', 'Subjects', 'Status', 'Actions']}
-          rows={[]}
-          emptyTitle="No teachers loaded"
+          columns={['Name', 'Email', 'Institute', 'Status']}
+          rows={rows}
+          emptyTitle={loadError ? 'Could not load teachers' : 'No teachers yet'}
         />
       </div>
       {addOpen ? (
-        <Modal title="Add teacher" onClose={() => setAddOpen(false)} actions={<PendingSaveButton>Create teacher</PendingSaveButton>}>
-          <div className="stack-form">
+        <Modal title="Add teacher" onClose={() => setAddOpen(false)} actions={<Button type="submit" form="add-teacher-form" disabled={saving}>{saving ? 'Creating…' : 'Create teacher'}</Button>}>
+          <form id="add-teacher-form" className="stack-form" onSubmit={handleCreateTeacher}>
             <Field label="Full name">
-              <input />
+              <input name="name" required maxLength={300} autoComplete="name" />
             </Field>
             <Field label="Email">
-              <input type="email" />
+              <input name="email" type="email" required maxLength={254} autoComplete="email" />
             </Field>
-            <Field label="Temporary password" hint="Passwords will be hashed by Django. Never stored in React.">
-              <input type="password" />
+            <Field label="Temporary password" hint="Django stores a one-way password hash. Share the temporary password securely with the teacher.">
+              <input name="password" type="password" required autoComplete="new-password" />
             </Field>
-          </div>
+            {formError ? <Callout tone="danger">{formError}</Callout> : null}
+          </form>
         </Modal>
       ) : null}
       {assignOpen ? (

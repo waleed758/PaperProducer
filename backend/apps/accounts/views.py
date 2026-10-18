@@ -136,3 +136,103 @@ def current_user(request):
     if not request.user.is_authenticated:
         return JsonResponse({"detail": "Authentication required."}, status=401)
     return JsonResponse({"user": _user_payload(request.user)})
+
+
+@require_GET
+def teachers(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required."}, status=401)
+    if request.user.role not in {User.Role.SUPER_ADMIN, User.Role.INSTITUTE_ADMIN}:
+        return JsonResponse({"detail": "You do not have permission to view teachers."}, status=403)
+
+    users = User.objects.filter(role=User.Role.TEACHER).select_related("institute")
+    if request.user.role == User.Role.INSTITUTE_ADMIN:
+        users = users.filter(institute_id=request.user.institute_id)
+
+    return JsonResponse({
+        "teachers": [
+            {
+                "id": user.pk,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "is_active": user.is_active,
+                "institute": user.institute.name,
+            }
+            for user in users.order_by("first_name", "last_name", "email")
+        ]
+    })
+
+
+@require_POST
+@csrf_protect
+def create_teacher(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required."}, status=401)
+    if request.user.role != User.Role.INSTITUTE_ADMIN or request.user.institute_id is None:
+        return JsonResponse({"detail": "Only an institute admin can add teachers."}, status=403)
+
+    data = _read_json(request)
+    if data is None:
+        return JsonResponse({"detail": "Request body must be a JSON object."}, status=400)
+
+    name = str(data.get("name", "")).strip()
+    email = str(data.get("email", "")).strip()
+    password = data.get("password", "")
+    errors = {}
+    if not name:
+        errors["name"] = ["Enter the teacher's name."]
+    elif len(name.partition(" ")[0]) > 150 or len(name.partition(" ")[2]) > 150:
+        errors["name"] = ["The first name and surname must each be 150 characters or fewer."]
+    if not email:
+        errors["email"] = ["Enter an email address."]
+    else:
+        try:
+            validate_email(email)
+        except ValidationError:
+            errors["email"] = ["Enter a valid email address."]
+        else:
+            email = User.objects.normalize_email(email).lower()
+            if User.objects.filter(email__iexact=email).exists():
+                errors["email"] = ["An account with this email already exists."]
+    if not isinstance(password, str) or not password:
+        errors["password"] = ["Enter a temporary password."]
+    else:
+        first_name, _, last_name = name.partition(" ")
+        candidate = User(
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            institute=request.user.institute,
+        )
+        try:
+            validate_password(password, user=candidate)
+        except ValidationError as exc:
+            errors["password"] = list(exc.messages)
+    if errors:
+        return JsonResponse({"errors": errors}, status=400)
+
+    first_name, _, last_name = name.partition(" ")
+    try:
+        user = User.objects.create_user(
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+            role=User.Role.TEACHER,
+            institute=request.user.institute,
+        )
+    except IntegrityError:
+        return JsonResponse(
+            {"errors": {"email": ["An account with this email already exists."]}},
+            status=409,
+        )
+
+    return JsonResponse({"teacher": {
+        "id": user.pk,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "email": user.email,
+        "is_active": user.is_active,
+        "institute": request.user.institute.name,
+    }}, status=201)

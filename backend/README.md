@@ -1,6 +1,6 @@
 # Paper Producer API
 
-Initial Django REST Framework scaffold. Domain models, authentication flows, and database migrations will be added in later steps.
+Django REST Framework backend for Paper Producer.
 
 ## Local setup
 
@@ -12,29 +12,28 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
+python manage.py migrate
 python manage.py runserver
 ```
 
-On Windows PowerShell, activate the virtual environment with:
+The API root is `http://127.0.0.1:8000/api/v1/`; health check is `http://127.0.0.1:8000/api/v1/health/`. Run Vite separately from `frontend/` to use the integrated web interface.
 
-```powershell
-.venv\Scripts\Activate.ps1
-```
+## Authentication and account endpoints
 
-The API root is available at `http://127.0.0.1:8000/api/v1/` and the health check at `http://127.0.0.1:8000/api/v1/health/`.
+Authentication uses Django session cookies and CSRF protection. Vite proxies `/api` to Django in local development, keeping browser requests same-origin.
 
-## Authentication API
-
-Authentication uses Django session cookies. In local development, the Vite server proxies `/api` to Django, so browser requests are same-origin. Fetch `/api/v1/auth/csrf/` first and send the returned `csrftoken` cookie in the `X-CSRFToken` header on POST requests.
-
-- `POST /api/v1/auth/signup/` creates an institute and its first institute-admin account. The public endpoint does not accept a role; it cannot create super-admin or teacher accounts.
+- `GET /api/v1/auth/csrf/` initializes the CSRF cookie.
+- `POST /api/v1/auth/signup/` creates an institute and its first institute-admin account. The public endpoint does not accept a role.
 - `POST /api/v1/auth/login/` accepts `email` and `password`.
 - `POST /api/v1/auth/logout/` ends the session.
 - `GET /api/v1/auth/me/` returns the signed-in user's profile and role.
-- `GET /api/v1/auth/csrf/` sets the CSRF cookie needed for POST requests.
+- `GET /api/v1/auth/teachers/` lists teachers for an institute admin's own institute, or all teachers for a super admin.
+- `POST /api/v1/auth/teachers/create/` lets an institute admin create a teacher only in their own institute. It accepts `name`, `email`, and `password`; the password must pass Django's configured validators.
 
-Signup currently creates an institute-admin account immediately; email verification, rate limiting, and staff-managed teacher invitations are not part of this initial endpoint layer. Production deployment should serve the frontend and API through a same-origin HTTPS setup or add an explicitly configured trusted-origin/cookie policy.
+Email is unique, role assignment is controlled by the backend, and Django stores a password hash rather than the original password. The teacher-creation flow currently uses an admin-provided temporary password; email invitations, password reset, email verification, and rate limiting are not implemented yet. Super admins are created through Django's `createsuperuser` management command, not public signup.
 
-The local scaffold defaults to SQLite so the API can start without a database service. PostgreSQL can be selected by setting `DB_ENGINE=postgresql` and filling in the `DB_*` values in `.env`. The project currently supports PostgreSQL or SQLite; schema migrations will be created after the remaining account and tenancy design decisions are settled.
+## Database and settings
 
-Do not use the example secret key outside local development. Keep the real `.env` file private; it is ignored by Git.
+The settings default to local SQLite. To use PostgreSQL, set `DB_ENGINE=postgresql` and provide `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` in `backend/.env`, then run migrations. The `.env` file is ignored by Git; keep real credentials there and never commit them.
+
+For production, configure a private `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=false`, allowed hosts, HTTPS, secure cookie settings, and the appropriate CSRF trusted origins. The local scaffold is not a production deployment configuration.
