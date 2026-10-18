@@ -17,6 +17,7 @@ This document describes the proposed logical schema for review. It is not a Djan
 - **User** (custom Django user): login identity, name, active status, and one role: `super_admin`, `institute_admin`, or `teacher`.
   - `institute` is optional only for `super_admin`; institute admins and teachers must have one institute.
   - Email/login identity is unique.
+  - Teachers receive subject permissions through **TeacherSubjectAssignment**, which records the assigning administrator and assignment time.
 - **Institute**: name, contact information, active status, and timestamps.
 
 ### Shared curriculum catalog
@@ -74,6 +75,6 @@ Question 0..1 ─── * GeneratedPaperQuestion (content snapshot retained)
 
 ## Implementation status
 
-The initial Django model layer follows this proposal. It includes separate English and Urdu text fields for questions, answers, explanations, and options. Generated papers snapshot the question type, text, answers, options, and correct-option markers so the answer key can remain stable.
+The initial Django model layer follows this proposal. It includes separate English and Urdu text fields for questions, answers, explanations, and options. Generated papers snapshot the question type, text, answers, options, and correct-option markers so the answer key can remain stable. Teacher subject assignments are implemented as an explicit through model with a uniqueness constraint.
 
-Initial migration files have been generated and checked for model drift. They have **not** been applied to PostgreSQL. API endpoints, authorization enforcement, paper-generation logic, PDF export, and export metadata are not implemented in this model step. In particular, institute ownership checks that span related records must be enforced in application services/permissions in addition to the model fields.
+The initial migration files and the teacher-assignment migration are generated. Apply any pending migrations with `python manage.py migrate`. Authentication and teacher assignment endpoints enforce institute scope. Question/template/paper APIs, generation-time authorization, paper-generation logic, PDF export, and export metadata are still pending. Institute ownership checks spanning related records must be enforced in application services/permissions in addition to the model fields.

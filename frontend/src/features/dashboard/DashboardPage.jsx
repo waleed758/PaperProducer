@@ -74,9 +74,11 @@ export function DashboardPage() {
           </>
         }
       />
-      <Callout tone="info">
-        {t('Your assigned subjects will appear here once institute permissions are configured.')}
-      </Callout>
+      {session.assignedSubjects.length ? (
+        <Callout tone="info">{t('Your assigned subjects:')} {session.assignedSubjects.map((subject) => t(subject)).join(', ')}</Callout>
+      ) : (
+        <Callout tone="info">{t('No subjects are assigned yet. Ask your institute admin to assign subjects.')}</Callout>
+      )}
       <div className="grid grid-3" style={{ marginTop: 16 }}>
         <StatCard label="Assigned subjects" />
         <StatCard label="My papers" />

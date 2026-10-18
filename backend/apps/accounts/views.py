@@ -9,7 +9,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
-from apps.accounts.models import User
+from apps.accounts.models import TeacherSubjectAssignment, User
+from apps.catalog.models import Subject
 from apps.institutions.models import Institute
 
 
@@ -30,6 +31,25 @@ def _user_payload(user):
         "last_name": user.last_name,
         "role": user.role,
         "institute": {"id": institute.pk, "name": institute.name} if institute else None,
+        "assigned_subjects": [
+            {"id": subject.pk, "name": subject.name, "code": subject.code}
+            for subject in user.assigned_subjects.filter(is_active=True)
+        ] if user.role == User.Role.TEACHER else [],
+    }
+
+
+def _teacher_payload(user):
+    return {
+        "id": user.pk,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "email": user.email,
+        "is_active": user.is_active,
+        "institute": user.institute.name,
+        "assigned_subjects": [
+            {"id": subject.pk, "name": subject.name, "code": subject.code}
+            for subject in user.assigned_subjects.filter(is_active=True)
+        ],
     }
 
 
@@ -145,20 +165,13 @@ def teachers(request):
     if request.user.role not in {User.Role.SUPER_ADMIN, User.Role.INSTITUTE_ADMIN}:
         return JsonResponse({"detail": "You do not have permission to view teachers."}, status=403)
 
-    users = User.objects.filter(role=User.Role.TEACHER).select_related("institute")
+    users = User.objects.filter(role=User.Role.TEACHER).select_related("institute").prefetch_related("assigned_subjects")
     if request.user.role == User.Role.INSTITUTE_ADMIN:
         users = users.filter(institute_id=request.user.institute_id)
 
     return JsonResponse({
         "teachers": [
-            {
-                "id": user.pk,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "email": user.email,
-                "is_active": user.is_active,
-                "institute": user.institute.name,
-            }
+            _teacher_payload(user)
             for user in users.order_by("first_name", "last_name", "email")
         ]
     })
@@ -228,11 +241,40 @@ def create_teacher(request):
             status=409,
         )
 
-    return JsonResponse({"teacher": {
-        "id": user.pk,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "email": user.email,
-        "is_active": user.is_active,
-        "institute": request.user.institute.name,
-    }}, status=201)
+    return JsonResponse({"teacher": _teacher_payload(user)}, status=201)
+
+
+@require_POST
+@csrf_protect
+def assign_teacher_subjects(request, teacher_id):
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required."}, status=401)
+    if request.user.role not in {User.Role.SUPER_ADMIN, User.Role.INSTITUTE_ADMIN}:
+        return JsonResponse({"detail": "You do not have permission to assign subjects."}, status=403)
+
+    teachers = User.objects.filter(pk=teacher_id, role=User.Role.TEACHER)
+    if request.user.role == User.Role.INSTITUTE_ADMIN:
+        teachers = teachers.filter(institute_id=request.user.institute_id)
+    teacher = teachers.select_related("institute").prefetch_related("assigned_subjects").first()
+    if teacher is None:
+        return JsonResponse({"detail": "Teacher not found."}, status=404)
+
+    data = _read_json(request)
+    if data is None:
+        return JsonResponse({"detail": "Request body must be a JSON object."}, status=400)
+    subject_ids = data.get("subject_ids")
+    if not isinstance(subject_ids, list) or any(type(subject_id) is not int or subject_id < 1 for subject_id in subject_ids):
+        return JsonResponse({"errors": {"subject_ids": ["Provide a list of valid subject IDs."]}}, status=400)
+    subject_ids = list(dict.fromkeys(subject_ids))
+    subjects = list(Subject.objects.filter(pk__in=subject_ids, is_active=True).order_by("name", "id"))
+    if len(subjects) != len(subject_ids):
+        return JsonResponse({"errors": {"subject_ids": ["One or more subjects are unavailable."]}}, status=400)
+
+    with transaction.atomic():
+        TeacherSubjectAssignment.objects.filter(teacher=teacher).delete()
+        TeacherSubjectAssignment.objects.bulk_create([
+            TeacherSubjectAssignment(teacher=teacher, subject=subject, assigned_by=request.user)
+            for subject in subjects
+        ])
+    teacher = User.objects.select_related("institute").prefetch_related("assigned_subjects").get(pk=teacher.pk)
+    return JsonResponse({"teacher": _teacher_payload(teacher)})

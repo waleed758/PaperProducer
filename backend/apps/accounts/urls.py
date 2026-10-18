@@ -11,4 +11,5 @@ urlpatterns = [
     path("me/", views.current_user, name="auth-current-user"),
     path("teachers/", views.teachers, name="teacher-list"),
     path("teachers/create/", views.create_teacher, name="teacher-create"),
+    path("teachers/<int:teacher_id>/subjects/", views.assign_teacher_subjects, name="teacher-subject-assignments"),
 ]

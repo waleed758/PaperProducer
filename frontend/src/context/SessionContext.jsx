@@ -9,7 +9,8 @@ function normalizeUser(user) {
     ...user,
     displayName,
     instituteName: user.institute?.name ?? null,
-    assignedSubjects: [],
+    assignedSubjects: (user.assigned_subjects ?? []).map((subject) => subject.name),
+    assignedSubjectRecords: user.assigned_subjects ?? [],
   }
 }
 

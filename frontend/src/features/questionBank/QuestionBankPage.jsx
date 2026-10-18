@@ -11,13 +11,13 @@ export function QuestionBankPage({ canManage = false }) {
   const { session } = useSession()
   const { t } = useLanguage()
   const { pushToast } = useToast()
-  const [subject, setSubject] = useState(session.role === ROLES.TEACHER ? 'math' : '')
+  const [subject, setSubject] = useState(session.role === ROLES.TEACHER ? String(session.assignedSubjectRecords[0]?.id ?? '') : '')
   const [type, setType] = useState('')
   const [difficulty, setDifficulty] = useState('')
 
   const subjectOptions = useMemo(() => {
     if (session.role === ROLES.TEACHER) {
-      return SUBJECTS.filter((item) => session.assignedSubjects.includes(item.name))
+      return session.assignedSubjectRecords
     }
     return SUBJECTS
   }, [session])

@@ -4,7 +4,7 @@ Educational SaaS for schools, colleges, academies, and institutes. The repositor
 
 ## Run the backend
 
-See [backend/README.md](backend/README.md) for environment setup and local run instructions. The API currently includes health, session authentication, public institute-admin signup, and institute teacher listing/creation endpoints. Domain models and initial migrations are present; paper generation and PDF export are not implemented yet.
+See [backend/README.md](backend/README.md) for environment setup and local run instructions. The API currently includes health, session authentication, public institute-admin signup, teacher listing/creation, and teacher subject assignments. Paper generation and PDF export are not implemented yet.
 
 ## Run the web interface
 
@@ -24,6 +24,7 @@ Open the local URL printed by Vite, usually `http://localhost:5173/`. In develop
 | Django / DRF scaffold and data models | Implemented |
 | Session login, signup, logout, and current-user API | Implemented |
 | Institute-admin teacher list/create API | Implemented |
+| Teacher subject assignment API | Implemented; generation-time enforcement awaits paper APIs |
 | Role and institute checks on teacher management | Implemented for these endpoints |
 | Question, template, and paper APIs | Pending |
 | Paper generation, answer keys, and PDF export | Pending |

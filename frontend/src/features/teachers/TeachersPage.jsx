@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiRequest, authPost, getErrorMessage } from '../../services/api'
-import { Button, Callout, DataTable, Field, Modal, PageHeader, PendingSaveButton } from '../../components/ui'
-import { SUBJECTS } from '../../data/interfaceCatalog'
+import { Button, Callout, DataTable, Field, Modal, PageHeader } from '../../components/ui'
 import { ROLES } from '../../constants/roles'
 import { useSession } from '../../context/SessionContext'
 import { useLanguage } from '../../context/LanguageContext'
@@ -12,9 +11,14 @@ export function TeachersPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [teachers, setTeachers] = useState([])
+  const [subjects, setSubjects] = useState([])
+  const [selectedTeacher, setSelectedTeacher] = useState(null)
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState([])
   const [loadError, setLoadError] = useState('')
   const [formError, setFormError] = useState('')
+  const [assignmentError, setAssignmentError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [savingAssignments, setSavingAssignments] = useState(false)
   const isAdmin = session.role === ROLES.INSTITUTE_ADMIN
   const canViewTeachers = isAdmin || session.role === ROLES.SUPER_ADMIN
   const title = 'Teachers'
@@ -24,9 +28,10 @@ export function TeachersPage() {
 
   useEffect(() => {
     if (!canViewTeachers) return
-    apiRequest('/auth/teachers/')
-      .then((response) => {
-        setTeachers(response.teachers)
+    Promise.all([apiRequest('/auth/teachers/'), apiRequest('/catalog/subjects/')])
+      .then(([teacherResponse, subjectResponse]) => {
+        setTeachers(teacherResponse.teachers)
+        setSubjects(subjectResponse.subjects)
         setLoadError('')
       })
       .catch((error) => setLoadError(getErrorMessage(error)))
@@ -52,13 +57,45 @@ export function TeachersPage() {
     }
   }
 
+  function openAssignmentEditor(teacher) {
+    setSelectedTeacher(teacher)
+    setSelectedSubjectIds(teacher.assigned_subjects.map((subject) => subject.id))
+    setAssignmentError('')
+    setAssignOpen(true)
+  }
+
+  async function handleSaveAssignments(event) {
+    event.preventDefault()
+    if (!selectedTeacher) return
+    setSavingAssignments(true)
+    setAssignmentError('')
+    try {
+      const response = await authPost(`/auth/teachers/${selectedTeacher.id}/subjects/`, {
+        subject_ids: selectedSubjectIds,
+      })
+      setTeachers((current) => current.map((teacher) => (
+        teacher.id === response.teacher.id ? response.teacher : teacher
+      )))
+      setSelectedTeacher(response.teacher)
+      setAssignOpen(false)
+    } catch (error) {
+      setAssignmentError(getErrorMessage(error))
+    } finally {
+      setSavingAssignments(false)
+    }
+  }
+
   const rows = teachers.map((teacher) => ({
     id: teacher.id,
     cells: [
       [teacher.first_name, teacher.last_name].filter(Boolean).join(' '),
       teacher.email,
       teacher.institute,
+      teacher.assigned_subjects.map((subject) => subject.name).join(', ') || '—',
       teacher.is_active ? 'Active' : 'Inactive',
+      <Button key={`assign-${teacher.id}`} variant="ghost" size="sm" onClick={() => openAssignmentEditor(teacher)}>
+        Assign subjects
+      </Button>,
     ],
   }))
 
@@ -70,11 +107,6 @@ export function TeachersPage() {
         actions={
           <>
             {isAdmin ? <Button onClick={() => { setFormError(''); setAddOpen(true) }}>Add teacher</Button> : null}
-            {isAdmin ? (
-              <Button variant="ghost" onClick={() => setAssignOpen(true)}>
-                Assign subjects
-              </Button>
-            ) : null}
           </>
         }
       />
@@ -87,7 +119,7 @@ export function TeachersPage() {
           </Button>
         </div>
         <DataTable
-          columns={['Name', 'Email', 'Institute', 'Status']}
+          columns={['Name', 'Email', 'Institute', 'Subjects', 'Status', 'Actions']}
           rows={rows}
           emptyTitle={loadError ? 'Could not load teachers' : 'No teachers yet'}
         />
@@ -108,18 +140,27 @@ export function TeachersPage() {
           </form>
         </Modal>
       ) : null}
-      {assignOpen ? (
-        <Modal title="Assign subject permissions" onClose={() => setAssignOpen(false)} actions={<PendingSaveButton>Save assignments</PendingSaveButton>}>
+      {assignOpen && selectedTeacher ? (
+        <Modal title="Assign subject permissions" onClose={() => setAssignOpen(false)} actions={<Button type="submit" form="assign-subjects-form" disabled={savingAssignments}>{savingAssignments ? 'Saving…' : 'Save assignments'}</Button>}>
           <p className="stat-hint">
-            {t('Teacher subject permissions are enforced on the server. Institute Admin paper generation is not limited by these assignments.')}
+            {t('Assign subjects for')} {[selectedTeacher.first_name, selectedTeacher.last_name].filter(Boolean).join(' ')}. {t('These assignments will be checked by the question and paper APIs when those features are connected. Institute admins are not limited by teacher assignments.')}
           </p>
-          <div className="stack-form">
-            {SUBJECTS.map((subject) => (
+          <form id="assign-subjects-form" className="stack-form" onSubmit={handleSaveAssignments}>
+            {subjects.length ? subjects.map((subject) => (
               <label key={subject.id} className="checkbox-row">
-                <input type="checkbox" /> {t(subject.name)}
+                <input
+                  type="checkbox"
+                  checked={selectedSubjectIds.includes(subject.id)}
+                  onChange={(event) => setSelectedSubjectIds((current) => (
+                    event.target.checked
+                      ? [...current, subject.id]
+                      : current.filter((id) => id !== subject.id)
+                  ))}
+                /> {subject.name}
               </label>
-            ))}
-          </div>
+            )) : <Callout tone="info">No active subjects are available. Add subjects in the catalog first.</Callout>}
+            {assignmentError ? <Callout tone="danger">{assignmentError}</Callout> : null}
+          </form>
         </Modal>
       ) : null}
     </>

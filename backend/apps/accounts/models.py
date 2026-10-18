@@ -49,6 +49,13 @@ class User(AbstractUser):
         on_delete=models.PROTECT,
         related_name="users",
     )
+    assigned_subjects = models.ManyToManyField(
+        "catalog.Subject",
+        through="accounts.TeacherSubjectAssignment",
+        through_fields=("teacher", "subject"),
+        related_name="assigned_teachers",
+        blank=True,
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["first_name", "last_name"]
@@ -67,3 +74,34 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+
+class TeacherSubjectAssignment(models.Model):
+    teacher = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="subject_assignments",
+    )
+    subject = models.ForeignKey(
+        "catalog.Subject",
+        on_delete=models.PROTECT,
+        related_name="teacher_assignments",
+    )
+    assigned_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.PROTECT,
+        related_name="created_subject_assignments",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["subject__name", "subject_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["teacher", "subject"],
+                name="unique_teacher_subject_assignment",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.subject} assigned to {self.teacher}"

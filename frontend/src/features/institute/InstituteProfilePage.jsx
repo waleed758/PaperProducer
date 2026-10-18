@@ -48,13 +48,13 @@ export function AssignedSubjectsPage() {
   const { t } = useLanguage()
   return (
     <>
-      <PageHeader title="Assigned subjects" description="You can generate regular and full-book guess papers only for these subjects once the API is live." />
+      <PageHeader title="Assigned subjects" description="These are the subjects your institute admin has assigned to your account." />
       <div className="grid grid-2">
         {session.assignedSubjects.length ? (
           session.assignedSubjects.map((name) => (
             <article className="card" key={name}>
               <h3>{t(name)}</h3>
-              <p className="stat-hint">{t('Preview assignment for interface review. Live assignments will replace this list.')}</p>
+              <p className="stat-hint">{t('Your institute administrator manages these assignments.')}</p>
             </article>
           ))
         ) : (
